@@ -10,9 +10,7 @@ In the repository, we uploaded:
 
 data/: Contains 6 CSV files with processed data for analysis.
 
-scripts/: Suplementar_pub.Rmd (RMarkdown script for statistical analysis).
-
-docs/: Supplementary_Information.pdf (Detailed methods and statistical reporting).
+scripts and docs/: Suplementar_pub.Rmd (RMarkdown script for statistical analysis) and Supplementary_Information.pdf (Detailed methods and statistical reporting).
 
 
 #---------------------------------#
