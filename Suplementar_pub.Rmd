@@ -1,0 +1,1877 @@
+---
+title: "Supplementary information: Statistical Analysis and Methods"
+author: "Gaione-Costa et al. 2026"
+date: "`r Sys.Date()`"
+subtitle: "Script: Nutrient Limitation and Amazonian Spiders"
+output:
+  html_document:
+    css: styles.css
+    code_folding: hide
+    toc: yes
+    toc_depth: 3
+    toc_float: no
+    df_print: kable 
+---
+
+```{css, echo=FALSE}
+/* Avoids broken tables and figures. */
+table, img {
+  page-break-inside: avoid !important;
+}
+
+/* Keep titles with the content below. */
+h1, h2, h3 {
+  page-break-after: avoid;
+}
+
+/* Adjust title size */
+h1 {
+  font-size: 18pt !important;  /* Main title */
+}
+
+h2 {
+  font-size: 16pt !important;  /* Captions (seção 1.1, 2.1, etc.) */
+}
+
+h3 {
+  font-size: 14pt !important;  /* Subsections */
+}
+
+/* Adjust margins to avoid cropping. */
+@page {
+  size: A4;
+  margin: 1.5cm;
+}
+```
+
+
+```{r dowloading packages, include=FALSE}
+# install packages missing for users of the script
+install_if_missing <- function(packages) {
+  for (pkg in packages) {
+    if (!requireNamespace(pkg, quietly = TRUE)) {
+      install.packages(pkg)
+    }
+    library(pkg, character.only = TRUE)
+  }
+} 
+
+# List of packages
+packages <- c("rmarkdown", "tinytex", "tidyverse", "ggplot2", "RColorBrewer", "ggpubr", "ggtext", "ggsci", "gridExtra", "nlme", "lmerTest", "Matrix", "lme4", "DHARMa", "cAIC4", "MuMIn", "MASS", "multcompView", "performance", "formatR", "patchwork", 
+              "kableExtra", "qwraps2")
+
+# Checking and downloading packages
+install_if_missing(packages)
+```
+
+```{r open packages, include=FALSE}
+# opening packages
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+library(rmarkdown) # fitting the pdf
+library(tidyverse) # lazy load tidy packages
+library(ggplot2) # to make graphics
+library(RColorBrewer) # fig colors
+library(gridExtra) # organise fig panels
+library(nlme) # lmm
+library(lmerTest)  #lmm value p
+library(Matrix) #lme4 dependent
+library(lme4) # lmm/glmm
+library(DHARMa) #checking models
+library(kableExtra) #plotting tables
+library(emmeans) #checking marginal differences
+library(MASS)
+library(performance) #checking model assumptions
+library(stringi)
+library(cowplot) #  gridind plots
+
+
+# Functions to fit tables
+se <-function(x) sd(x,na.rm=TRUE)/sqrt(length(x)) # function for tables
+
+# Creating a order to table factors
+order_trt <- c("Control", "Phosphorus", "Nitrogen", "Cations", "N+P", "P+Cations", "N+Cations", "N+P+Cations") # Organizing tables
+
+# Colours for graphcs
+colours_fill <- c("#006400", "#7A2091") # Colors for graphics
+colours_around <- c("#242424", "#242424") # Border for boxes in graphics
+
+# For adjustind simbols in tables {
+options(encoding = "UTF-8") 
+Sys.setlocale("LC_ALL", "C.UTF-8") 
+
+fix_utf8 <- function(df) {
+  df[] <- lapply(df, function(x) {
+    if (is.character(x)) {
+      x <- iconv(x, from = "", to = "UTF-8")
+    }
+    x
+  })
+  df
+}
+
+
+```
+
+$~$
+
+
+# **Description**
+
+
+Supplementary information for the following paper: **Nitrogen and Phosphorus availability mediates the effects of bottom-up limitation on orb-weaver spider traits in an Amazonian rainforest** . 
+
+$~$
+
+### **Summary and highlights results of the analyses**
+
+Our results provide evidence that nutrient limitation in an Amazon terra firme rainforest has varying effects on the size, but not the fat content, of two common understory spider species. We found that individuals of *S. duodecimguttata* in N-only-fertilized (P not included) plots were smaller compared to those in environments with joint addition of N and P, which had a larger size. However, the fat content of  remained unaffected by nutrient additions. In contrast, neither the size nor the fat content of *H. folisecens* was influenced by nutrient additions. To the best of our knowledge, this is the first evidence that nutrient limitation on soil can affect life-history traits of at least one predator in a naturally megadiverse nutrient-limited terrestrial environment.
+
+$~$
+
+### **Linear mixed model approach**
+
+All analyzes in the article were based on the followed model:
+
+$~$
+
+$$ lmer~(response - N*P*Cations + Expedition + (1~|~Block), ~REML = FALSE) $$ 
+
+$~$
+
+Simplifying the fixed effects of all models step-wise was carried out using the *step*() function from the '*lmerTest*' package.
+
+$~$
+
+We used the standard type III *anova* to shows the results of each model. We compared final models to null models for completeness. Comparisons between the final model and null models were showed using the function *anova* from default package of R program.
+
+$~$
+
+# 1. Pre-Analysis: Fat remove comparison and correlation between fat-free and fat removed mass 
+
+$~$
+
+## 1.1. LMM between steps of fat removal process of *Spilasma duodecimguttata* (Table S1)
+
+```{r Spilasma fat remove comparison Table S1, echo=FALSE}
+# Data for fat removal process (S. duodecimguttata)
+spi <- read.csv('Comparison_fat_steps_spilasma.csv', h = T)
+
+# Object to turn columns on facts
+cols <- c("EXPEDITION", "BLOCK", "PLOT",  "ID",  "STEP")
+
+# Converting selected variables to factors and recode nutrient treatments
+spi <- spi %>%
+  dplyr::mutate(across(all_of(cols), factor))
+
+# Model for fat 
+lm_spilasma <- lmer(WEIGHT ~ STEP 
+                    + EXPEDITION # Expedition was used as covariate to control variance between expeditions 
+                    + (1 | ID), # ID was used to remove the intraindividual variance before coeficients
+                    data = spi)
+
+# checking output
+#anova(lm_spilasma)
+#summary(lm_spilasma)
+
+# -------------------------- # 
+
+# Checking model
+# check_model(lm_spilasma)
+# qqnorm(resid(lm_spilasma))
+# qqline(resid(lm_spilasma))
+
+# anova
+# anova(lm_spilasma) # F = 102.510, p < 0.001 ***
+
+
+# -------------------------- # 
+
+# null model
+null_spilaspa_step <- lmer(WEIGHT ~ EXPEDITION 
+                           + (1 | ID), 
+                           data = spi)
+
+# anova(lm_spilasma, null_spilaspa_step) # Chisq(2) = 154.18; p < 0.001 ***
+
+# -------------------------- # 
+
+# Estimating marginal means between removal fat steps to assess the levels of difference between pairs
+
+emmean_spi_step <- emmeans(lm_spilasma, ~ STEP, 
+                                          type = "response", # Returns the real values
+                                          cov.reduce = FALSE, # It does not exclude the effect of the covariate.
+                                          lmer.df = "satterthwaite", #It considers the same degrees of freedom pattern as the LMMs.
+                                          weights = "cells") # considers the actual number of observations.
+
+# Estimating contrasts
+df_emmean_spi <- contrast(emmean_spi_step, method = "pairwise")
+
+# Creating data.frame
+df_emmean_spi <- data.frame(df_emmean_spi)
+    
+# Table formatting
+Table_S1 <- kbl(
+  df_emmean_spi,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S1 | Pairwise comparisons among sequential mass measurements during fat extraction of *S. duodecimguttata*.** Dry body mass was measured procedure before extraction (Pi), after the first extraction step procedure (P1), and after the second extraction step procedure (P2). Estimates represent mean differences between steps (g) derived from linear mixed models (lmer(WEIGHT ~ STEP + EXPEDITION + (1 | ID)), with associated standard errors (SE), degrees of freedom (df), t-ratios, and p-values using contrasts by emmeans. Significant differences between Pi and both post-extraction measurements (P1 and P2) indicate effective fat removal, whereas the non-significant difference between P1 and P2 suggests minimal additional mass loss after the first extraction step.",
+  align = "l"
+) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Print table
+Table_S1
+
+```
+
+
+```{r Spilasma correlation between fat free and fat removed mass, echo=FALSE, include = F}
+# Data for correlation
+# Load nutritional condition data for S. duodecimguttata
+spilasma_fat_data <- read.csv("Fat_Spilasma.csv", h = T)
+
+# Correlation 
+pearson_spilasma <- cor.test(spilasma_fat_data$Mean_weight_3, 
+                             spilasma_fat_data$Residual_fat, 
+                             method = "pearson"
+                             )
+
+# -------------------------- # 
+
+#pearson_spilasma # r = 0.397, df = 136, p < 0.001
+
+```
+
+$~$
+
+## 1.2. LMM between steps of fat removal process of *Hingstepeira folisecens* (Table S2)
+
+```{r Hingstepeira fat remove comparison Table S2, echo=FALSE}
+# Hingstepeira folisecens
+hings <- read.csv('Comparison_fat_steps_hings.csv', h = T)
+
+# Cols
+cols <- c("BLOCK", "PLOT", "ID", "EXPEDITION",  "STEP")
+
+# Converting selected variables to factors and recode nutrient treatments
+spi <- spi %>%
+       dplyr::mutate(across(all_of(cols), factor))
+
+# Model 
+lm_hingstepeira <- lmer(log(WEIGHT) ~ STEP 
+                        + EXPEDITION 
+                        + (1 | ID),
+                        data = hings)
+
+# Checking assumpsions
+# plot(lm_hingstepeira)
+# check_model(lm_hingstepeira)
+# qqnorm(resid(lm_hingstepeira))
+# qqline(resid(lm_hingstepeira))
+
+# Checking model
+# summary(lm_hingstepeira)
+
+# -------------------------- # 
+
+# Null model
+null_hingstepeira <- lmer(log(WEIGHT) ~ EXPEDITION 
+                                      + (1 | ID), 
+                                      data = hings)
+
+# anova
+# anova(lm_hingstepeira, null_hingstepeira) # Chisq = 233.55 p < 0.001
+
+# -------------------------- # 
+
+# Estimating marginal means between removal fat steps
+emmean_hings_step <- emmeans(lm_hingstepeira, ~ STEP,
+                                                type = "response", # Returns the real values
+                                                cov.reduce = FALSE, # It does not exclude the effect of the covariate.
+                                                lmer.df = "satterthwaite", #It considers the same degrees of freedom pattern as the LMMs.
+                                                weights = "cells") # considers the actual number of observations.
+
+# Estimating contrasts
+df_emmean_hings <- contrast(emmean_hings_step, method = "pairwise")
+
+# Creating data.frame
+df_emmean_hings <- data.frame(df_emmean_hings)
+
+# -------------------------- # 
+
+# Table formatting
+Table_S2 <- kbl(
+  df_emmean_hings,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S2 |  Pairwise comparisons among sequential mass measurements during fat extraction of *H. folisecens*.** Dry body mass was measured procedure before extraction (Pi), after the first extraction step procedure (P1), and after the second extraction step procedure (P2). Estimates represent mean differences between steps (g) derived from linear mixed model 'lmer(log(WEIGHT) ~ STEP + EXPEDITION + (1 | ID)', with associated standard errors (SE), degrees of freedom (df), t-ratios, and p-values using contrasts by emmeans. Significant differences between Pi and both post-extraction measurements (P1 and P2) indicate effective fat removal, whereas the non-significant difference between P1 and P2 suggests minimal additional mass loss after the first extraction step.",
+  align = "l"
+) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Print table
+Table_S2
+
+```
+
+```{r Hingstepeira correlation between fat free and fat removed mass, echo=FALSE, include = FALSE}
+
+# Opening the data
+hingstepeira_fat <- read.csv('Fat_Hingstepeira.csv', h=T)
+
+# Correlation 
+pearson_hings <- cor.test(hingstepeira_fat$Mean_weight_3, 
+                          hingstepeira_fat$Residual_fat, 
+                          method = "pearson"
+                          )
+
+# pearson_hings # r = 0.6065, df = 139, p < 0.001
+
+```
+
+$~$
+
+# 2. Cephalothorax width of *S. duodecimguttata* 
+
+$~$
+
+## 2.1. Dataset of cephalothorax width of *S. duodecimguttata* individuals by treatment (Table S3)
+
+```{r Table_S3 Summary data cephalothorax size S duodeciguttata, echo=FALSE}
+
+# Data importing #
+# Load cephalothorax width data for S. duodecimguttata
+spilasma_cephalothorax_data <- read.csv("Size_Spilasma.csv", h = T) 
+
+# Factor handling
+# Define categorical variables used in the experimental design
+cols <- c("EXPEDITION", "BLOCK", "PLOT", "TRT", "ID", "COLLECTION_DATA", "P", "N", "CATIONS", "SEX", "AGE", "STATUS")
+
+# Converting selected variables to factors and recode nutrient treatments
+spilasma_cephalothorax <- spilasma_cephalothorax_data %>%
+                                  dplyr::mutate(across(all_of(cols), factor)) %>%
+                                  dplyr::mutate(
+                                                Phosphorus = fct_recode(P, "-P" = "0", "+P" = "1"), 
+                                                Cations = fct_recode(CATIONS, "-Cations" = "0", "+Cations" = "1"),
+                                                Nitrogen   = fct_recode(N, "-N" = "0", "+N" = "1")
+                                                )
+
+# -------------------------- # 
+
+# Summarizing statistics per treatment #
+# Compiling sample size and descriptive statistics of cephalothorax width
+summary_data_spilasma_cephalothorax <- spilasma_cephalothorax %>%
+                                      mutate(TRT = fct_relevel(TRT, order_trt)) %>%  # predefined treatment order
+                                      dplyr::group_by(TRT) %>% # TRT = Kind of treatment 
+                                      summarise( # summarizing the data
+                                                across(
+                                                       WIDTH_CEPHALOTHORAX,
+                                                       .f = list(
+                                                       n = ~length(.x),
+                                                       mean = ~round(mean(.x, na.rm = TRUE), 3),
+                                                       sd = ~round(sd(.x, na.rm = TRUE), 3),
+                                                       se = ~round(se(.x), 3)
+                                                                )
+                                                      ),
+                                                      .groups = "drop"
+                                                ) %>%
+                                                      rename( # renaming columns
+                                                             "Treatment" = TRT,
+                                                             "N" = WIDTH_CEPHALOTHORAX_n,
+                                                             "Mean cephalothorax width (mm)" = WIDTH_CEPHALOTHORAX_mean,
+                                                             "SD" = WIDTH_CEPHALOTHORAX_sd,
+                                                             "SE" = WIDTH_CEPHALOTHORAX_se
+                                                            )
+
+# Creating first and second expedition columns
+n_by_expedition <- spilasma_cephalothorax %>% 
+                   group_by(TRT, EXPEDITION) %>%
+                   summarise(n = n(), .groups = "drop") %>%
+                   tidyr::pivot_wider(
+                                      names_from  = EXPEDITION,
+                                      values_from = n,
+                                      names_prefix = "N_Exp_") %>% 
+                   rename('Treatment' = TRT,
+                   '1ª expedition (n)' = N_Exp_FIRST,
+                   '2ª expedition (n)' = N_Exp_SECOND)
+
+
+# Merging data.frames
+df_data_spilasma_cephalothorax <- summary_data_spilasma_cephalothorax %>% 
+                                 left_join(n_by_expedition, by = "Treatment") 
+
+
+# Renaming the columns of the data.frame
+summary_data_spilasma_cephalothorax <- df_data_spilasma_cephalothorax %>% 
+                                      dplyr::mutate(
+                                        Treatment = fct_relevel(Treatment, order_trt)
+                                                    )  %>%
+                                      dplyr::select(
+                                        Treatment, N, '1ª expedition (n)', '2ª expedition (n)', everything()
+                                                    )  
+   
+
+# Table formatting
+Table_S3 <- kbl(
+  summary_data_spilasma_cephalothorax,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S3 | Summary of cephalothorax width data for *S. duodecimguttata* across AFEX treatments.** Mean, SD, and SE of cephalothorax width for adult females collected during two expeditions (2022–2023) in an old-growth forest in Central Amazonia.",
+  align = "l"
+) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Print table
+Table_S3
+
+```
+
+$~$
+
+## 2.2. Dataset of cephalothorax width of *S. duodecimguttata* individuals by main nutrient (Table S4)
+
+
+```{r TableS4 Data set of cephalothorax size S duodeciguttata per nutrient, echo=FALSE}
+# Summary statistics by individual nutrients #
+# Cephalothorax width summarized by presence/absence of each nutrient,
+# independent of factorial treatment combinations
+
+# Phosphorus 
+cephalothorax_P <- spilasma_cephalothorax %>% 
+  dplyr::group_by(Phosphorus) %>%
+  dplyr::summarize(
+    'N' = n(),
+    'Mean cephalothorax width (mm)' = mean(WIDTH_CEPHALOTHORAX),
+    'se' = se(WIDTH_CEPHALOTHORAX),
+    .groups = "drop"
+                  ) %>% 
+  dplyr::rename(Treatment = Phosphorus)
+
+# Nitrogen 
+cephalothorax_N <- spilasma_cephalothorax %>%
+  dplyr::group_by(Nitrogen) %>%
+  dplyr::summarize(
+    'N' = n(),
+    'Mean cephalothorax width (mm)' = mean(WIDTH_CEPHALOTHORAX),
+    'se' = se(WIDTH_CEPHALOTHORAX),
+    .groups = "drop"
+                   ) %>% 
+  dplyr::rename(Treatment = Nitrogen)
+
+# Cations
+cephalothorax_Cations <- spilasma_cephalothorax %>%
+  dplyr::group_by(Cations) %>%
+  dplyr::summarize(
+    'N' = n(),
+    'Mean cephalothorax width (mm)' = mean(WIDTH_CEPHALOTHORAX),
+    'se' = se(WIDTH_CEPHALOTHORAX),
+    .groups = "drop"
+                  ) %>% 
+  dplyr::rename(Treatment = Cations)
+
+# Merge summaries 
+cephalothorax_combined <- dplyr::bind_rows(
+  cephalothorax_P,
+  cephalothorax_N,
+  cephalothorax_Cations
+  )
+
+# Formatting
+cephalothorax_combined <- cephalothorax_combined %>%
+  dplyr::mutate(
+                `Mean cephalothorax width (mm)` = round(`Mean cephalothorax width (mm)`, 3),
+                se = round(se, 3)
+                )
+
+# Table formatting
+Table_S4 <- kbl(
+  cephalothorax_combined,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S4 | Summary of cephalothorax width data for *S. duodecimguttata* by primary nutrient.** Mean, SD, and SE of cephalothorax width of individuals collected in AFEX plots according to the presence or absence of each nutrient. Data include specimens collected during two expeditions (2022–2023).",
+  align = "l"
+) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Print table
+Table_S4
+
+```
+
+$~$
+
+## 2.3. Full model for cephalothorax width of *S. duodecimguttata* (Table S5)
+
+```{r TableS5 full model cephalothorax S duodeciguttata, echo = FALSE}
+# hist(spilasma_cephalothorax$WIDTH_CEPHALOTHORAX)
+
+# Full mixed-effects model #
+# Cephalothorax width of S. duodecimguttata as a function of nutrient additions
+
+m1_size_spilasma_full <- lmer(WIDTH_CEPHALOTHORAX ~ N * P * CATIONS 
+                              + EXPEDITION 
+                              + (1 | BLOCK),  
+                              REML = FALSE,
+                              data = spilasma_cephalothorax)
+
+# -------------------------- # 
+
+# Model diagnostics #
+# plot(m1_size_spilasma_full)
+# check_model(m1_size_spilasma_full)
+
+# -------------------------- # 
+
+# Analysis of variance
+anova_size_spilasma_full <- anova(m1_size_spilasma_full, type = 3)
+
+# Table formatting
+Table_S5 <- kbl(
+  anova_size_spilasma_full,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S5 | Analysis of variance of the full mixed-effects model for cephalothorax width of *S. duodecimguttata*.** Fixed effects include N, P, Cations, their interactions, and collection expedition, with block included as a random intercept. The model was fitted as: lmer(WIDTH_CEPHALOTHORAX ~ N * P * CATIONS + EXPEDITION + (1 | BLOCK), REML = FALSE)",
+  align = "l"
+) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Print table
+Table_S5
+
+```
+
+$~$
+
+## 2.4. Model simplification procedure for cephalothorax width of *S. duodecimguttata* (Table S6)
+
+```{r TableS6 Simplification model of cephalothorax S duodeciguttata, echo = FALSE}
+
+# Model simplification #
+# Backward elimination of fixed effects for cephalothorax width of S. duodecimguttata
+
+m1_size_spilasma_step <- lmerTest::step(
+                                        m1_size_spilasma_full,
+                                        keep = 'EXPEDITION', 
+                                        reduce.random = FALSE,
+                                        trace = TRUE
+                                        )
+
+#  Final simplified model 
+m1_size_spilasma_final <- get_model(m1_size_spilasma_step)
+
+# Summary of the final model
+# summary(m1_size_spilasma_final)
+
+#  Extracting simplification table 
+m1_size_spilasma_step_table <- m1_size_spilasma_step$fixed
+
+# Table formatting 
+Table_S6 <- kbl(
+  m1_size_spilasma_step_table,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S6 | Backward simplification of the full mixed-effects model for cephalothorax width of *S. duodecimguttata*.** Fixed effects were sequentially removed using the `step` function (lmerTest). The table shows the eliminated fixed terms during the model simplification procedure.",
+  align = "l"
+) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Print table
+Table_S6
+
+
+```
+
+$~$
+
+## 2.5. Simplified model for cephalothorax width of *S. duodecimguttata* (Table S7)
+
+```{r TableS7 anova final model of cephalothorax S duodeciguttata, echo=FALSE}
+
+# Final inferential model #
+# Final mixed-effects model for cephalothorax width of S. duodecimguttata
+# including the selected N:P interaction and expedition as a fixed effect
+
+# summary(m1_size_spilasma_final) # final model
+
+# Model diagnostics were assessed using visual inspection
+# and simulation-based methods (see Supplementary Methods)
+
+# plot(m1_size_spilasma_final)      # acceptable residual patterns
+# check_model(m1_size_spilasma_final)  # no major violations detected
+
+# anova of the final model 
+anova_m1_size_spilasma_final <- anova(m1_size_spilasma_final , type = 3)
+
+# Table formatting
+Table_S7 <- kbl(
+  anova_m1_size_spilasma_final,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S7 | Type III anova of the final mixed-effects model for cephalothorax width of *S. duodecimguttata*.** The model includes the N × P interaction, expedition as a fixed effect, and block as a random intercept. The model was fitted as: lmer(WIDTH_CEPHALOTHORAX ~ N * P + EXPEDITION + (1 | BLOCK), REML = FALSE)",
+  align = "l"
+) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Print table
+Table_S7
+
+```
+
+$~$
+
+## 2.6. Null model comparison (Table S8)
+
+```{r TableS8 comparison with null model of cephalothorax S duodeciguttata, echo=FALSE}
+
+# Null model comparison #
+# Null model including only expedition as a fixed effect and block as a random intercept
+
+m1_size_spilasma_null <- lmer(WIDTH_CEPHALOTHORAX ~ EXPEDITION 
+                              + (1 | BLOCK),
+                              data = spilasma_cephalothorax,
+                              REML = FALSE
+                              )
+
+# Likelihood ratio test comparing the final model against the null model
+anova_m1_size_spilasma_vs_null <- anova(m1_size_spilasma_final, m1_size_spilasma_null)
+
+# Table formatting 
+Table_S8 <- kbl(
+  anova_m1_size_spilasma_vs_null,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S8 | Likelihood ratio test comparing the final and null mixed-effects models for cephalothorax width of *S. duodecimguttata*.** The null model includes expedition as a fixed effect and block as a random intercept. We observed a significant difference between the final model and the null model (Chisq(3) = 8.265, p = 0.041), suggesting that the addition of N and P nutrients does indeed affect the size of the spiders.",
+  align = "l"
+) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Print table
+Table_S8
+
+```
+
+$~$
+
+## 2.7. Final dataset for cephalothorax width of *S. duodecimguttata* (N|P interaction) (Table S9)
+
+```{r TableS9 Data set of significative data of cephalothorax S duodeciguttata, echo = FALSE}
+
+# Final Model estimation with REML = T
+m1_size_spilasma_final <- lmer(WIDTH_CEPHALOTHORAX ~ N * P 
+                               + EXPEDITION 
+                               + (1 | BLOCK),
+                               data = spilasma_cephalothorax,
+                               REML = T # Reporting final model with REML
+                               )
+
+
+# Creating and summarizing the data with N, P and their interactions
+spilasma_cephalothorax$NP_int <-  with(spilasma_cephalothorax, 
+                                 ifelse(Nitrogen == "+N" & Phosphorus == "+P", "+N/+P",
+                                 ifelse(Nitrogen == "+N" & Phosphorus == "-P", "+N/-P",
+                                 ifelse(Nitrogen == "-N" & Phosphorus == "+P", "-N/+P", 
+                                 "-N/-P")))
+                                      ) 
+
+# Creating an order for treatments
+order_int <- c('-N/-P', '+N/-P', '-N/+P', '+N/+P')
+
+# -------------------------- # Observation:
+
+# Table with real data of the interactions between N and P used in the graphs and table in the main document.
+# We chose not to include it in the supplementary material, since it is already included and adjusted for the article.
+
+# width_NP_spilasma_cephalothorax <- spilasma_cephalothorax %>%
+#                                  dplyr::select(NP_int, WIDTH_CEPHALOTHORAX) %>%
+#                                  mutate(NP_int = fct_relevel(NP_int, order_int)) %>%
+#                                  dplyr::group_by(NP_int) %>%
+#                                  summarise(n = n(),
+#                                            mean_size = mean(WIDTH_CEPHALOTHORAX),
+#                                            se_size = se(WIDTH_CEPHALOTHORAX),
+#                                            t_crit = qt(0.975, df = n - 1),
+#                                            asymp.LCL = mean_size - t_crit * se_size,
+#                                            asymp.UCL = mean_size + t_crit * se_size)
+
+# kbl(width_NP_spilasma_cephalothorax, digits = 3)  %>%
+#  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Since the significance estimates between the interaction treatments were obtained based on emmeans, we chose to report these results as supplementary material, as follow:
+width_NP_spilasma_cephalothorax <- spilasma_cephalothorax %>%
+                                  dplyr::select(NP_int, WIDTH_CEPHALOTHORAX) %>%
+                                  mutate(NP_int = fct_relevel(NP_int, order_int)) %>%
+                                  dplyr::group_by(NP_int) %>%
+                                  summarise(n = n(),
+                                            'Mean width cephalothorax (mm)' = mean(WIDTH_CEPHALOTHORAX),
+                                            SE = se(WIDTH_CEPHALOTHORAX))
+
+# print(width_NP_spilasma_cephalothorax)  
+# NP_int n
+# -N/-P	40			
+# +N/-P	37			
+# -N/+P	49			
+# +N/+P	25	
+
+# -------------------------- # 
+
+# estimating marginal means to check the differences between N and P additions
+emm_spilasma_size <- emmeans(m1_size_spilasma_final, ~ N * P,
+                             type = "response", 
+                             cov.reduce = FALSE, 
+                             lmer.df = "satterthwaite",
+                             weights = "cells"
+                             )
+
+# Checking df
+df_emm_spilasma_size <- data.frame(emm_spilasma_size)
+
+# -------------------------- # 
+
+# Creating contrasts to observe exactly which treatments differ from one another:
+# contrast(emm_spilasma_size, "pairwise", by = "P")
+# P = 0:
+# contrast estimate     SE  df t.ratio p.value
+# N0 - N1    0.0840 0.0367 145   2.291  0.0234
+
+# ((2.195 / 2.279) - 1) * 100  # N1P0 - N1P1: Reduction of -3.685827 %
+
+# P = 1:
+#  contrast estimate     SE  df t.ratio p.value
+# N0 - N1   -0.0772 0.0399 143  -1.937  0.0547
+
+# contrast(emm_spilasma_size, "pairwise", by = "N")
+# N = 0:
+# contrast estimate     SE  df t.ratio p.value
+# P0 - P1    0.0604 0.0343 146   1.760  0.0805
+
+# N = 1:
+# contrast estimate     SE  df t.ratio p.value
+# P0 - P1   -0.1008 0.0422 137  -2.390  0.0182
+
+# ((2.296/ 2.195) - 1) * 100  # N1P0 - N1P1:  Increase of 4.6 %
+
+# -------------------------- # 
+
+# merging the data.frames
+df_int_final <- data.frame(width_NP_spilasma_cephalothorax,
+                           df_emm_spilasma_size)
+
+# adjusting the final data.frame for print
+df_int_final <- df_int_final %>% 
+                dplyr::select(NP_int, n, emmean, SE, df, lower.CL, upper.CL) %>% 
+                dplyr::rename('Interactions between main nutrients' = NP_int,
+                              'Estimated marginal mean (mm)' = emmean
+                              )
+
+# Creating table with caption
+TableS9 <- kbl(df_int_final,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S9 | Summary of the marginal means of the final model: lmer(WIDTH_CEPHALOTHORAX ~ N * P + EXPEDITION + (1 | BLOCK) for *S. duodecimguttata*.** All data is associated with estimate marginal means from emmeans function of 'emmeans' package, representing the estimation of the real data by the model. Plots with +N-P showed spiders with a smaller relative size compared to environments without the addition of N and P (-N/-P), while relatively larger spiders were observed in environments with the addition of +N+P. On these data, SE, df and CI is estimated based on model estimates.",
+  align = "l", digits =) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+#print table
+TableS9
+```
+
+
+$~$
+
+\newpage
+
+# 3. Cephalothorax width of *H. folisecens* 
+
+$~$
+
+### 3.1. Dataset of cephalothorax width of *H. folisecens*  (Table S10)
+
+```{r TableS10 Dataset cephalothorax of H folisecens, echo=FALSE}
+
+# Opening the dataset
+hingstepeira_cephalothorax_data <- read.csv("Size_Hingstepeira.csv", header = TRUE)
+
+# Creating an object with the cols 
+cols <- c("EXPEDITION", "BLOCK", "PLOT", "TRT", "ID", "COLLECTION_DATA", "P", "N", "CATIONS", "SEX", "AGE")
+
+# Converting all categorical variables to factors using cols object
+hingstepeira_cephalothorax <- hingstepeira_cephalothorax_data %>% 
+                             mutate(across(all_of(cols), factor)) %>% 
+                             mutate(Phosphorus = fct_recode(P, "-P" = "0", "+P" = "1"), 
+                                     Cations = fct_recode(CATIONS, "-Cations" = "0", "+Cations"= "1"), 
+                                     Nitrogen = fct_recode(N,"-N"="0", "+N"="1")
+                                    ) 
+
+# -------------------------- # 
+
+# Summary table per AFEX treatment
+width_cephalothorax_hingstepeira_table <- hingstepeira_cephalothorax %>% 
+                                         dplyr::select(TRT, WIDTH_CEPHALOTHORAX) %>% 
+                                         dplyr::mutate(TRT = fct_relevel(TRT, order_trt)) %>%
+                                         dplyr::group_by(TRT) %>% 
+                                         summarise(across(
+                                                          WIDTH_CEPHALOTHORAX, 
+                                                          .f = list(n = ~length(.x), 
+                                                                    mean = ~round(mean(.x, na.rm=TRUE), digits = 2), 
+                                                                    sd = ~round(sd(.x, na.rm = TRUE), digits = 3), 
+                                                                    se = ~round(se(.x), digits = 3) ))
+                                                   ) %>% 
+                                          arrange(match(TRT, order_trt)) %>% 
+                                          rename("Treatment" = TRT, "N" = WIDTH_CEPHALOTHORAX_n,
+                                                 "Mean width cephalothorax (mm)" = WIDTH_CEPHALOTHORAX_mean, 
+                                                 "SD" = WIDTH_CEPHALOTHORAX_sd, 
+                                                 "SE" = WIDTH_CEPHALOTHORAX_se
+                                                 ) 
+
+
+# Creating first and second expedition columns
+n_by_expedition <- hingstepeira_cephalothorax %>% 
+                   group_by(TRT, EXPEDITION) %>%
+                   summarise(n = n(), .groups = "drop") %>%
+                   tidyr::pivot_wider(
+                                      names_from  = EXPEDITION,
+                                      values_from = n,
+                                      names_prefix = "N_Exp_"
+                                      ) %>% 
+                                      rename('Treatment' = TRT,
+                                             '1ª expedition (n)' = N_Exp_FIRST,
+                                             '2ª expedition (n)' = N_Exp_SECOND,
+                                             '3ª expedition (n)' = N_Exp_THIRD)
+
+
+# Merging data.frames
+df_data_hingstepeira_cephalothorax <- width_cephalothorax_hingstepeira_table %>% left_join(n_by_expedition, by = "Treatment") 
+
+
+# Renaming the columns of the data.frame
+summary_data_hingstepeira_cephalothorax <- df_data_hingstepeira_cephalothorax %>% 
+                                          dplyr::mutate(Treatment = fct_relevel(Treatment, order_trt))  %>%
+                                          dplyr::select(Treatment, N, '1ª expedition (n)', '2ª expedition (n)', '3ª expedition (n)', everything()
+                                                        )  
+
+
+# Creating and styling the table 
+Table_S10 <- kbl(summary_data_hingstepeira_cephalothorax, booktabs = T, caption = "**Supplementary Table S10 | Summary of the data on the width of the cephalothorax of *H. folisecens* by AFEX treatments.** Mean, SD, and SE of the width cephalothorax of individuals of *H. folisecens* in different fertilization treatments of AFEX in a mature forest in Central Amazonia. The data comprises data of spiders *H. folisecens* collected in three expeditions (2022, 2023 and 2024).", align = 'l') %>%
+        kable_styling(htmltable_class = 'lightable-classic') 
+
+# -------------------------- # 
+
+# Print the table 
+Table_S10
+
+```
+
+$~$
+
+### 3.2. Dataset of cephalothorax width of *H. folisecens* individuals by main nutrient (Table S11)
+
+```{r TableS11, echo=FALSE}
+
+# Summary per nutrient
+# Phosphorus table
+cephalothorax_P <- hingstepeira_cephalothorax %>%
+  group_by(Phosphorus) %>%
+  summarise(
+    N = n(),
+    Mean = round(mean(WIDTH_CEPHALOTHORAX), 3),
+    SD = round(sd(WIDTH_CEPHALOTHORAX), 3),
+    SE = round(se(WIDTH_CEPHALOTHORAX), 3),
+    .groups = "drop"
+            ) %>%
+            rename(Treatment = Phosphorus)
+
+# Nitrogen table
+cephalothorax_N <- hingstepeira_cephalothorax %>%
+  group_by(Nitrogen) %>%
+  summarise(
+    N = n(),
+    Mean = round(mean(WIDTH_CEPHALOTHORAX), 3),
+    SD = round(sd(WIDTH_CEPHALOTHORAX), 3),
+    SE = round(se(WIDTH_CEPHALOTHORAX), 3),
+    .groups = "drop"
+            ) %>%
+            rename(Treatment = Nitrogen)
+
+# Cations table
+cephalothorax_Ca <- hingstepeira_cephalothorax %>%
+  group_by(Cations) %>%
+  summarise(
+            N = n(),
+            Mean = round(mean(WIDTH_CEPHALOTHORAX), 3),
+            SD = round(sd(WIDTH_CEPHALOTHORAX), 3),
+            SE = round(se(WIDTH_CEPHALOTHORAX), 3),
+            .groups = "drop"
+            ) %>%
+            rename(Treatment = Cations)
+
+# Combine tables
+cephalothorax_combined_hingstepeira <- bind_rows(cephalothorax_P, cephalothorax_N, cephalothorax_Ca)
+
+# Table summarizing cephalothorax width data of hingstepeira per nutrient
+Table_S11 <- kbl(
+  cephalothorax_combined_hingstepeira,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S11 | Cephalothorax width of *H. folisecens* by nutrient addition.** Mean, SD, and SE of individuals collected in AFEX plots according to the presence or absence of each macronutrient.",
+  align = "l"
+) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Print table s9
+Table_S11
+
+```
+
+$~$
+
+### 3.3. Full model for cephalothorax width of *H. folisecens* (Table S12)
+
+
+```{r TableS12_f_model_H_folisecens, echo=FALSE}
+
+# Full mixed-effects model
+m2_width_hingstepeira <- lmer(WIDTH_CEPHALOTHORAX ~ N * P * CATIONS 
+                              + EXPEDITION 
+                              + (1 | BLOCK),
+                              REML = F,
+                              data = hingstepeira_cephalothorax
+                              )
+
+# Checking
+# plot(m2_width_hingstepeira)
+# performance::check_model(m2_width_hingstepeira)
+
+# Type III anova for factorial design
+anova_m2_full <- anova(m2_width_hingstepeira, type = 3)
+
+# Table of the full model anova
+Table_S12 <- kbl(
+  anova_m2_full,
+  booktabs = TRUE,
+  caption = "**Supplementary Table S12 | Type III anova of the f mixed-effects model for cephalothorax width of *H. folisecens*.** The model included macronutrient fertilization (N, P, and Cations), their interactions, expedition, and block as a random effect. The model was fitted as: lmer(WIDTH_CEPHALOTHORAX ~ N * P * CATIONS + EXPEDITION + (1 | BLOCK), REML = FALSE)",
+  align = "l"
+) %>%
+  kable_styling(htmltable_class = "lightable-classic")
+
+# -------------------------- # 
+
+# Print anova 
+Table_S12
+
+```
+
+$~$
+
+### 3.4. Model simplification procedure for cephalothorax width of *H. folisecens* (Table S13)
+
+```{r  Simplification of the model 2 of width of the cephalothorax of H. folisecens individuals, warning = FALSE, echo=FALSE}
+
+# Model simplification with step() function
+m2_simplification <- step(m2_width_hingstepeira,
+                          reduce.random = FALSE,
+                          trace = T, keep = 'EXPEDITION'
+                          )
+
+# Extract simplification table
+m2_width_final <- get_model(m2_simplification) # N and CATIONS remains
+
+# checking final model
+# summary(m2_width_final) # N and CATIONS remains
+
+# Capture the table of eliminated terms from the simplification process
+m2_simplification_table <- m2_simplification$fixed
+
+# Create a table with kable showing the selected columns (without F value and Pr(>F))
+Table_S13 <- kbl(m2_simplification_table, booktabs = TRUE, caption = "**Supplementary Table S13 | Model simplification for cephalothorax width of *H. folisecens*.** Simplification process of the full model of effects of macronutrient fertilization in the *H. folisecens*'s size. This table shows the selected terms after backward elimination. N and Cations were not removed from the model", align = 'l') %>%
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# Renaming the columns of the data.frame
+
+# Print the table
+Table_S13
+
+```
+
+$~$
+
+### 3.5. Null model comparison (Table S14)
+
+
+```{r TableS14, echo=FALSE, warning=FALSE}
+
+# Null model
+m2_null <- lmer(WIDTH_CEPHALOTHORAX ~ EXPEDITION 
+                + (1 | BLOCK),
+                REML = F,
+                data = hingstepeira_cephalothorax
+                )
+
+# Models comparison
+anova_final_hingstepeira <- anova(m2_width_final, m2_null)
+
+# Creating the table of the output
+Table_S14 <- kbl(anova_final_hingstepeira, booktabs = T, caption = "**Supplementary Table S14 | Output of an *anova* comparison between the final and null models**. Although the addition of N and Cations was maintained in the final model, the comparison with the null model showed a nonsignificant difference between the models (Chisq(3) =	4.597, p = 0.203), indicating that these nutrients do not results in a significant effect on the nutritional status of *H. folisecens*.", align = 'l') %>% 
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- # 
+
+#Print the table
+Table_S14
+
+```
+
+$~$
+
+### 3.6. Relationship between nutrient addition and body size of *H. folisecens* (Figure S1)
+
+
+```{r FigureS1, echo=FALSE, warning=FALSE, fig.cap="**Supplementary Figure S1 | Size of *H. folisecens* individuals through the addition of macronutrients, represented by the width of the cephalothorax.** We no observed any effect of nutrient addition on the size of the individuals of *H. folisecens*. Each box represents the dispersion values of the data, where the full black line in the boxes represents the median of the data. The dots in each box represent the size of each individual. The dashed line represents the mean value of the cephalothorax width of individuals collected in the control plots (n = 20; mean = 1.677 ± 0.023 mm)."}
+
+# Finding the control data
+control_mean_hings_cephalothorax <- hingstepeira_cephalothorax %>% 
+                                   filter(TRT == 'Control') %>% 
+                                   summarise(mean(WIDTH_CEPHALOTHORAX),
+                                             se(WIDTH_CEPHALOTHORAX)) 
+
+#control_mean_hings_cephalothorax # mean = 1.677 ± 0.023 mm -> It will used on geom_hline on graphics (below)
+
+# Creating the graphics
+
+# Phosphorus graphic
+Size_hings_P <- ggplot(hingstepeira_cephalothorax) +
+  aes(x = Phosphorus, y = WIDTH_CEPHALOTHORAX, fill = Phosphorus) + # aes
+  geom_boxplot(aes(color = Phosphorus), width = 0.5, alpha = 0.6, position = position_dodge(0.75), outlier.shape = NA) + # boxplot of the data
+  geom_jitter(aes(fill = Phosphorus), shape = 21, alpha = 0.3, color = "black", 
+              size = 2, position = position_jitter(width = 0.15, seed = 123)) + # creating points 
+  labs(x = "Treatment",  y = expression("Cephalothorax width of " * italic("H. folisecens") * " (mm)")) +
+  scale_fill_manual(values = colours_fill) +  
+  scale_color_manual(values = colours_around) +  
+  theme_classic() +
+  geom_hline(yintercept = 1.6775, color = "black", linetype = "dashed", cex = 1, alpha = 0.5) +
+  # inserting mean control value in yintercept
+  theme(axis.text.x = element_text(size = 12, color = "black"),
+        axis.text.y = element_text(size = 12, color = "black"),
+        axis.title.y = element_text(size = 14),
+        axis.title.x = element_text(size = 14),
+        legend.position = "none")  
+
+# Nitrogen graphic
+Size_hings_N <- ggplot(hingstepeira_cephalothorax) +
+  aes(x = Nitrogen, y = WIDTH_CEPHALOTHORAX, fill = Nitrogen) +
+  geom_boxplot(aes(color = Nitrogen), width = 0.5, alpha = 0.6, position = position_dodge(0.75), outlier.shape = NA) + 
+  geom_jitter(aes(fill = Nitrogen), shape = 21, alpha = 0.3, color = "black", 
+              size = 2, position = position_jitter(width = 0.15, seed = 123)) +
+  labs(x = "Treatment", y = element_blank()) +
+  scale_fill_manual(values = colours_fill) +  
+  scale_color_manual(values = colours_around) +  
+  theme_classic() +
+  geom_hline(yintercept = 1.6775, color = "black", linetype = "dashed", cex = 1, alpha = 0.5) +
+  theme(axis.text.x = element_text(size = 12, color = "black"),
+        axis.text.y = element_text(size = 12, color = "black"),
+        axis.title.y = element_text(size = 14),
+        axis.title.x = element_text(size = 14),
+        legend.position = "none")  
+
+# Cations graphic
+Size_hings_Ca <- ggplot(hingstepeira_cephalothorax) +
+  aes(x = Cations, y = WIDTH_CEPHALOTHORAX, fill = Cations) +
+  geom_boxplot(aes(color = Cations), width = 0.5, alpha = 0.6, position = position_dodge(0.75), outlier.shape = NA) + 
+  geom_jitter(aes(fill = Cations), shape = 21, alpha = 0.3, color = "black", 
+              size = 2, position = position_jitter(width = 0.15, seed = 123)) +
+  labs(x = "Treatment", y = element_blank()) +
+  scale_fill_manual(values = colours_fill) + 
+  scale_color_manual(values = colours_around) + 
+  theme_classic() +
+  geom_hline(yintercept = 1.6775, color = "black", linetype = "dashed", cex = 1, alpha = 0.5) +
+  theme(axis.text.x = element_text(size = 12, color = "black"),
+        axis.text.y = element_text(size = 12, color = "black"),
+        axis.title.y = element_text(size = 14),
+        axis.title.x = element_text(size = 14),
+        legend.position = "none") 
+
+# Arranging all graphics
+Fig1_Hings_size_graphics <- grid.arrange(Size_hings_P, Size_hings_N, Size_hings_Ca, nrow = 1, widths = c(1.2, 1.2, 1.2))
+
+# -------------------------- # 
+
+# Ploting
+invisible(Fig1_Hings_size_graphics)
+
+```
+
+$~$
+
+
+\newpage
+
+
+
+# 4. Fat content of *S. duodecimguttata* 
+
+$~$
+
+### 4.1. Dataset of fat content of *S. duodecimguttata* (Table S15)
+
+```{r TableS15 Dataset fat content of S duodeciguttata, echo=FALSE}
+
+# Data importing #
+# Load nutritional condition data for S. duodecimguttata
+spilasma_fat_data <- read.csv("Fat_Spilasma.csv", h = T)
+
+# id_size_s <- unique(spilasma_cephalothorax_data$ID)
+# id_fat_s  <- unique(spilasma_fat_data$ID)
+
+# ids_both_s <- intersect(id_size_s, id_fat_s)
+# ids_both_s
+
+# ids_only_size_s <- setdiff(id_size_s, id_fat_s)
+# ids_only_size_s
+
+# 13 individuals of S. duodecimguttata were removed from fat dataset by exclusion criteria: "Co_R19", "N_R04", "N_R07", "N_R11", "NCa_R14", "NCa_R18", "NP_R11", "NPCa_R01", "P_R28", "P_R29", "P_R30", "P_R42", "PCa_R13"
+
+# -------------------------- # 
+
+# Factor handling
+# Define categorical variables used in the experimental design
+cols <- c("EXPEDITION", "BLOCK", "PLOT", "TRT", "ID", "COLLECTION_DATE", "P", "N", "CATIONS")
+
+# Converting selected variables to factors and recode nutrient treatments
+spilasma_fat <- spilasma_fat_data %>%
+                mutate(across(all_of(cols), factor)) %>%
+                mutate(Phosphorus = fct_recode(P, "-P" = "0", "+P" = "1"), 
+                       Cations = fct_recode(CATIONS, "-Cations" = "0", "+Cations"= "1"),
+                       Nitrogen = fct_recode(N,"-N"="0", "+N"="1"))
+
+
+# Creating a table with summary of the data compilation per treatment
+spilasma_fat_summary <- spilasma_fat %>%
+  dplyr::select(TRT, 
+                Standard_residuals_spilasma, 
+                Mean_weight_1, 
+                Residual_fat
+                ) %>%
+  mutate(TRT = fct_relevel(TRT, order_trt)) %>%
+  dplyr::group_by(TRT) %>%
+  summarise(across(Standard_residuals_spilasma, 
+                   .f = list(
+                   n = ~length(.x),
+                   mean = ~round(mean(.x, na.rm=TRUE), digits = 4),
+                   se = ~round(se(.x), digits = 4)
+                   )),
+                   Mean_weight_1_mean = round(
+                   mean(Mean_weight_1, na.rm=TRUE), digits = 4), 
+                   Mean_weight_1_se = format(round(
+                   se(Mean_weight_1), digits = 4), 
+                   scientific = FALSE), 
+                   Residual_fat_mean = format(round(
+                   mean(Residual_fat, na.rm=TRUE), digits = 4), 
+                   scientific = FALSE),  
+                   Residual_fat_se = format(round(
+                   se(Residual_fat), digits = 4) , 
+                   scientific = FALSE)) %>% 
+                   rename(
+                          "N" = Standard_residuals_spilasma_n,
+                          "Mean padronized residuals" = Standard_residuals_spilasma_mean,
+                          "SE" = Standard_residuals_spilasma_se,
+                          "Mean weight total (g)" = Mean_weight_1_mean,  
+                          "SE weight total" = Mean_weight_1_se,
+                          "Mean residual fat removed (g)" = Residual_fat_mean,
+                          "SE residual fat removed" = Residual_fat_se,
+                          ) %>%
+  dplyr::select(TRT, N, 
+                `Mean padronized residuals`, `SE`,
+                `Mean weight total (g)`, 'SE weight total', 
+                `Mean residual fat removed (g)`, 'SE residual fat removed'
+                )
+
+# Adjust the data set
+spilasma_fat_summary <- spilasma_fat_summary %>%
+                        mutate(`Mean weight total (g)` = paste0(
+                               `Mean weight total (g)`, " (± ", `SE weight total`, ')'),
+                               `Mean residual fat removed (g)` = paste0(
+                               `Mean residual fat removed (g)`, " (± ", `SE residual fat removed`,')')) %>%
+                        dplyr::select(TRT, N, `Mean weight total (g)`, 
+                        `Mean residual fat removed (g)`) %>% 
+                        arrange(match(TRT, order_trt)) %>% 
+                        rename(Treatment = 'TRT')
+
+
+# Creating and styling the table
+Table_S15 <- kbl(spilasma_fat_summary, booktabs = T, caption = "**Supplementary Table S15 | Summary of the fat content of the individuals of *S. duodecimguttata* by AFEX treatments.** Treatment (TRT), number of individuals, mean weight, mean residual fat removed, ratio fat representation, and mean patronized residuals of the body condition data of individuals of *S. duodecimguttata* in different fertilization treatments in a mature forest in Central Amazonia. The data analysis comprises data from spiders *S. duodecimguttata* collected in two expeditions (2022 and 2023).", align = 'l') %>%
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- # 
+
+# Print the table
+Table_S15
+
+```
+
+$~$ 
+
+### 4.2. Dataset of cephalothorax width of *S. duodecimguttata* by main nutrient (Table S16)
+
+```{r TableS16, echo=FALSE}
+
+# Creating a table from each type of nutrient
+# Phosphorus 
+fat_P_spilasma <- spilasma_fat %>% 
+  dplyr::group_by(Phosphorus) %>%
+  dplyr::summarize(
+    'n' = n(),
+    'Mean weight total (g)' = round(mean(Mean_weight_1, na.rm=TRUE), digits = 4),
+    'se weight total' = format(round(se(Mean_weight_1), digits = 4), scientific = FALSE),
+    'Fat content weight (g)' = format(round(mean(Residual_fat, na.rm=TRUE), digits = 4), scientific = FALSE),
+    'se residual fat removed' = format(round(se(Residual_fat), digits = 4) , scientific = FALSE),
+    'Mean padronized residuals' = round(mean(Standard_residuals_spilasma, na.rm=T), digits = 4),
+    'se' = format(round(se(Standard_residuals_spilasma), digits = 4) , scientific = FALSE)) %>% 
+  dplyr::rename(Treatment = 'Phosphorus')
+
+# Nitrogen
+fat_N_spilasma <- spilasma_fat %>%
+  dplyr::group_by(Nitrogen) %>%
+  dplyr::summarize(
+    'n' = n(),
+    'Mean weight total (g)' = round(mean(Mean_weight_1, na.rm=TRUE), digits = 4),
+    'se weight total' = format(round(se(Mean_weight_1), digits = 4), scientific = FALSE),
+    'Fat content weight (g)' = format(round(mean(Residual_fat, na.rm=TRUE), digits = 4), scientific = FALSE),
+    'se residual fat removed' = format(round(se(Residual_fat), digits = 4) , scientific = FALSE),
+    'Mean padronized residuals' = round(mean(Standard_residuals_spilasma, na.rm=T), digits = 4),
+    'se' = format(round(se(Standard_residuals_spilasma), digits = 4) , scientific = FALSE)) %>% 
+  dplyr::rename(Treatment = 'Nitrogen')
+
+# Cations
+fat_Cations_spilasma <- spilasma_fat %>%
+  dplyr::group_by(Cations) %>%
+  dplyr::summarize(
+    'n' = n(),
+    'Mean weight total (g)' = round(mean(Mean_weight_1, na.rm=TRUE), digits = 4),
+    'se weight total' = format(round(se(Mean_weight_1), digits = 4), scientific = FALSE),
+    'Fat content weight (g)' = format(round(mean(Residual_fat, na.rm=TRUE), digits = 4), scientific = FALSE),
+    'se residual fat removed' = format(round(se(Residual_fat), digits = 4) , scientific = FALSE),
+    'Mean padronized residuals' = round(mean(Standard_residuals_spilasma, na.rm=T), digits = 4),
+    'se' = format(round(se(Standard_residuals_spilasma), digits = 4) , scientific = FALSE)) %>% 
+  dplyr::rename(Treatment = 'Cations')
+
+
+# Building the data.frame
+fat_combined_spilasma <- dplyr::bind_rows(fat_P_spilasma, fat_N_spilasma,  fat_Cations_spilasma)
+
+
+fat_combined_spilasma <- fat_combined_spilasma %>%
+                         mutate(
+                                `Mean weight total (g)` = paste0(
+                                `Mean weight total (g)`, " (± ", `se weight total`, ')'),
+                                `Fat content weight (g)` = paste0(
+                                `Fat content weight (g)`, " (± ", `se residual fat removed`, ')'),
+                                `Mean padronized residuals` = paste0(
+                                `Mean padronized residuals`, " (± ", se, ')')
+                                ) %>%
+                        dplyr::select(Treatment, n, 
+                                      `Mean weight total (g)`, 
+                                      `Fat content weight (g)`, 
+                                      `Mean padronized residuals`) %>% 
+                                      rename(N = 'n')
+
+# Creating the table
+Table_S16 <- kbl(fat_combined_spilasma, booktabs = TRUE, caption = "**Supplementary Table S16 | Summary of the fat content of the individuals of *S. duodecimguttata* per primary nutrient.** Treatment (TRT), number of individuals, mean weight, mean residual fat removed, ratio fat representation, and mean patronized residuals of the body condition data of individuals of *S. duodecimguttata* in different fertilization treatments in a mature forest in Central Amazonia. The data analysis comprises data from spiders *S. duodecimguttata* collected in two expeditions (2022 and 2023).", align = 'l') %>%
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- # 
+
+# Print the table
+Table_S16
+
+```
+
+$~$
+
+### 4.3. Full model for fat content of *S. duodecimguttata* (Table S17)
+
+
+```{r Full model: fat content of S duodeciguttata and boxcox transformation,  echo = FALSE, include = F}
+
+# Full model # Fat content of the individuals of S. duodecimguttata
+
+# hist(spilasma_cephalothorax$Standard_residuals_spilasma)
+
+# Full mixed-effects model #
+# Cephalothorax width of S. duodecimguttata as a function of nutrient additions
+m3_fat_spilasma <- lmer(Standard_residuals_spilasma ~ N * P * CATIONS 
+                        + EXPEDITION 
+                        + (1 | BLOCK), 
+                        REML = FALSE,
+                        data = spilasma_fat)
+
+# Steps for box cox: step 1 - Extract residuals and apply Box-Cox
+residuals_cox <- residuals(m3_fat_spilasma)
+
+# Step 2 - Add a constant to prevent values <= 0
+constant_boxcox <- abs(min(residuals_cox, na.rm = TRUE)) + 0.001
+residuals_post <- residuals_cox + constant_boxcox
+
+# Step 3 - Estimate best lambda
+bc <- boxcox(residuals_post ~ 1)
+best_lambda <- bc$x[which.max(bc$y)]
+
+# Step 4 - Apply Box-Cox transformation to the original data
+constant_data <- abs(min(spilasma_fat$Standard_residuals_spilasma, na.rm = TRUE)) + 0.001
+spilasma_fat$y_transformed <- (spilasma_fat$Standard_residuals_spilasma + constant_data)^best_lambda
+
+# Full model with Box-Cox transformation
+m_boxcox_m3 <- lmerTest::lmer(y_transformed ~ N * P * CATIONS 
+                              + EXPEDITION 
+                              + (1 | BLOCK), 
+                              REML = FALSE,
+                              data = spilasma_fat)
+
+# plot(m_boxcox_m3)
+# Verification of assumptions 
+performance::check_model(m_boxcox_m3)
+
+```
+
+```{r TableS17, echo =  F} 
+# Full model with box-cox transformation
+m_boxcox_m3 <- lmerTest::lmer(y_transformed ~ N * P * CATIONS 
+                              + EXPEDITION 
+                              + (1 | BLOCK),
+                              data = spilasma_fat, 
+                              REML = FALSE)
+
+# Checking assumptions of the model
+# plot(m_boxcox_m3)
+# check_model(m_boxcox_m3)
+
+# anova of the full model
+S_17 <- anova(m_boxcox_m3, type = 3)
+
+# Creating the table
+Table_S17 <- kbl(S_17, booktabs = T, caption = "**Supplementary Table S15 | Output of an anova of the full model: 'lmer(y_transformed ~ N * P * CATIONS + EXPEDITION + (1 | BLOCK), REML = F)'.** This model was fitted with the the boxcox adjust of standard residuals of the ratio between total weight and residual fat content in the data of the individuals *S. duodecimguttata*.", align = 'l') %>% 
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- # 
+
+# Print the table
+Table_S17
+
+```
+
+$~$
+
+### 4.4. Model simplification procedure for fat content of *S. duodecimguttata* (Table S18)
+
+
+```{r TableS18 Simplification model of fat S duodeciguttata, echo = FALSE, warning = FALSE,}
+
+# Model simplification with step() function
+m3_simplification <- step(m_boxcox_m3,
+                          keep = 'EXPEDITION', 
+                          reduce.random = FALSE,
+                          trace = TRUE) 
+
+# Extract the final simplified model
+m3_fat_final <- get_model(m3_simplification)
+
+#summary(m3_fat_final)
+
+# Capture the table of eliminated terms from the simplification process
+m3_simplification_table <- m3_simplification$fixed
+
+# Create a table with kable showing the selected columns (without F value and Pr(>F))
+Table_S18 <- kbl(m3_simplification_table, 
+                 booktabs = TRUE, 
+                 caption = "**Supplementary Table S18 | Model simplification for standard residuals of the ratio between total weight and residual fat content of *H. folisecens*.** Simplification process of the full model of effects of the macronutrient fertilization in the *S. duodecimguttata*'s body condition. This table shows the selected terms after backward elimination. All treatments were removed through the simplification process.", align = 'l') %>%
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- # 
+
+# Print the table
+Table_S18
+
+```
+
+
+$~$
+
+### 4.5. Null model comparison (Table S19)
+
+
+```{r TableS19 run totmod_full, warning = FALSE, echo=FALSE}
+
+# Fitting null model
+null_m3 <- lmer(y_transformed ~ EXPEDITION 
+                              + (1 | BLOCK),  
+                              REML = F, 
+                              data = spilasma_fat)
+
+# Comparing models
+fat_null_model <- anova(m_boxcox_m3, null_m3, test='Chisq')
+
+
+Table_S19 <- kbl(fat_null_model, booktabs = T, caption = "**Supplementary Table S19 | Output of anova comparison between the final and null models**. The comparison showed a nonsignificant difference between the models (Chisq(7) = 7.039, p = 0.424).", align = 'l') %>% 
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- # 
+
+# Print the table
+Table_S19
+
+```
+
+$~$
+
+### 4.6. Relationship between nutrient addition and body fat content of *S. duodecimguttata* (Figure S2)
+
+```{r FigureS2, warning = FALSE, echo=FALSE, fig.cap="**Supplementary Figure S2 | Fat content of *S. duodecimguttata* individuals by adding macronutrients, represented by the patronized residuals of the ratio between fat extracted and the weight without fat.** We no observed any effect of nutrient addiction on these spiders's body fat content. Each box represents the dispersion values of the data, where the full black line in the boxes represents the median of the data. The dots in each box represent the size of each individual. The dashed line represents the mean value of the cephalothorax width of individuals collected in the control plots (n = 17; Dashed line = 1.043 ± 0.093 mm (mean ± se))."}
+
+# Creating an object to visualize only the control data
+control_spilasma_fat <- spilasma_fat %>% filter(TRT == 'Control') %>% 
+                                   summarise(mean(y_transformed),
+                                             se(y_transformed))
+
+# Creating the control line
+# print(control_spilasma_fat) #1.04256
+
+# Creating the graphics
+
+# Phosphorus graphic
+Fat_spilasma_P <- ggplot(spilasma_fat) +
+                  aes(x = Phosphorus, y = y_transformed, fill = Phosphorus) +
+                      geom_boxplot(aes(color = Phosphorus),
+                      width = 0.5, alpha = 0.6, position = position_dodge(0.75), 
+                      outlier.shape = NA
+                      ) + 
+                      geom_jitter(aes(fill = Phosphorus),
+                      shape = 21, alpha = 0.3, color = "black", 
+                      size = 2, position = position_jitter(width = 0.15, seed = 123)
+                      ) +
+                      labs(x = "Treatment", y = expression("Boxcox Residual padronized of " * " " * italic("S. duodecimguttata") * " ")) +
+                      scale_fill_manual(values = colours_fill) +
+                      scale_color_manual(values = colours_around) +  
+                      scale_y_continuous(limits = c(0, 3), breaks = seq(0, 3, by = 0.5)
+                                         ) + 
+                      theme_classic() +
+                      geom_hline(yintercept = 1.043, color = "black", 
+                      linetype = "dashed", cex = 1, alpha = 0.5
+                                 ) + 
+                      theme(axis.text.x = element_text(size = 12, color = "black"),
+                            axis.text.y = element_text(size = 12, color = "black"),
+                            axis.title.y = element_text(size = 14),
+                            axis.title.x = element_text(size = 14),
+                            legend.position = "none"
+                            )  
+
+# Nitrogen graphic
+Fat_spilasma_N <- ggplot(spilasma_fat) +
+                  aes(x = Nitrogen, y = y_transformed, fill = Nitrogen) +
+                  geom_boxplot(aes(color = Nitrogen), 
+                               width = 0.5, alpha = 0.6, 
+                               position = position_dodge(0.75), outlier.shape = NA
+                               ) + 
+                 geom_jitter(aes(fill = Nitrogen), 
+                              shape = 21, alpha = 0.3, color = "black", 
+                              size = 2, position = position_jitter(width = 0.15, seed = 123)
+                             )+
+                  labs(x = "Treatment", y = "") +
+                  scale_fill_manual(values = colours_fill) + 
+                  scale_color_manual(values = colours_around) +
+                  scale_y_continuous(limits = c(0, 3), breaks = seq(0, 3, by = 0.5)) + 
+                  theme_classic() +
+                  geom_hline(yintercept = 1.043, 
+                              color = "black", linetype = "dashed", cex = 1, alpha = 0.5) +
+                  theme(axis.text.x = element_text(size = 12, color = "black"),
+                        axis.text.y = element_text(size = 12, color = "black"),
+                        axis.title.y = element_text(size = 14),
+                        axis.title.x = element_text(size = 14),
+                        legend.position = "none"
+                        ) 
+
+# Cation graphic
+Fat_spilasma_Ca  <- ggplot(spilasma_fat) +
+                    aes(x = Cations, y = y_transformed, fill = Cations) +
+                    geom_boxplot(aes(
+                      color = Cations), width = 0.5, alpha = 0.6, 
+                      position = position_dodge(0.75), outlier.shape = NA) + 
+                    geom_jitter(aes(fill = Cations), 
+                                shape = 21, alpha = 0.3, color = "black", 
+                                size = 2, position = position_jitter(width = 0.15, seed = 123)
+                                )+
+                    labs(x = "Treatment", y = "") +
+                    scale_fill_manual(values = colours_fill) +  
+                    scale_color_manual(values = colours_around) +  
+                    scale_y_continuous(limits = c(0, 3), breaks = seq(0, 3, by = 0.5)) + 
+                    theme_classic() +
+                    geom_hline(yintercept = 1.043, 
+                               color = "black", linetype = "dashed", cex = 1, alpha = 0.5
+                               ) +
+                    theme(axis.text.x = element_text(size = 12, color = "black"),
+                          axis.text.y = element_text(size = 12, color = "black"),
+                          axis.title.y = element_text(size = 14),
+                          axis.title.x = element_text(size = 14),
+                          legend.position = "none"
+                          )
+
+# Organizar os grC!ficos em uma linha usando grid.arrange()
+Fig2_Spilasma_fat_graphic <- grid.arrange(Fat_spilasma_P, Fat_spilasma_N, Fat_spilasma_Ca, nrow = 1, widths = c(1.2, 1.2, 1.2))
+
+# -------------------------- #
+
+# Ploting
+invisible(Fig2_Spilasma_fat_graphic)
+
+```
+
+$~$
+
+
+\newpage
+
+
+
+# 5. Fat content of *H. folisecens*
+
+$~$
+
+### 5.1. Dataset of fat content of *H. folisecens* (Table S20)
+
+```{r TableS20 Dataset fat content H. folisecens, echo = FALSE}
+
+# Opening the data
+hingstepeira_fat <- read.csv('Fat_Hingstepeira.csv', h=T)
+
+#id_size_h <- unique(hingstepeira_cephalothorax_data$ID)
+#id_fat_h  <- unique(hingstepeira_fat$ID)
+
+#ids_both_h <- intersect(id_size, id_fat)
+#ids_both_h
+
+#ids_only_size_h <- setdiff(id_size_h, id_fat_h)
+#ids_only_size_h
+
+# 14 individuals of H. folisecens were removed from fat dataset by exclusion criteria: 
+# "N_R49", "Ca_R40","Ca_R49", "Co_R45", "P_R43", "N_R61", "NCa_R55", "NPCa_R02", "NPCa_R20",     "NPCa_R21_dup", "PCa_R17", "PCa_R23", "PCa_R24", "PCa_R27"  
+
+# -------------------------- #
+
+# Creating an object with the cols
+cols <- c('ID', 'BLOCK', 'PLOT', 'TRT', 'N', 'P', 'CATIONS',  'EXPEDITION', "COLLECTION_DATE")
+
+# Transforming the data in factors
+hingstepeira_fat <- hingstepeira_fat %>%
+                    mutate(across(all_of(cols), factor)) %>%
+                    mutate(Phosphorus = fct_recode(P, "-P" = "0", "+P" = "1"), 
+                           Cations = fct_recode(CATIONS, "-Cations" = "0", "+Cations"= "1"),
+                           Nitrogen = fct_recode(N,"-N"="0", "+N"="1")
+                           )
+
+# Creating a table with summary of the data compilation per treatment
+
+summary_fat_hingstepeira <- hingstepeira_fat  %>%
+                            dplyr::select(TRT, Standard_residuals_hingstepeira, Mean_weight_1, Residual_fat) %>%  # Seleciona as colunas necessárias
+                            mutate(TRT = fct_relevel(TRT, order_trt)) %>%
+                            dplyr::group_by(TRT) %>%
+                              summarise(across(Standard_residuals_hingstepeira, 
+                                               .f = list(
+                                               n = ~length(.x),
+                                               mean = ~round(mean(.x, na.rm=TRUE), digits = 4),
+                                               se = ~round(se(.x), digits = 4)
+                                             )),
+                                      Mean_weight_1_mean = round(mean(Mean_weight_1, na.rm=TRUE), digits = 4), 
+                                      Mean_weight_1_se = format(round(se(Mean_weight_1), digits = 4), scientific = FALSE), 
+                                      Residual_fat_mean = format(round(mean(Residual_fat, na.rm=TRUE), digits = 4), scientific = FALSE),  
+                                      Residual_fat_se = format(round(se(Residual_fat), digits = 4) , scientific = FALSE)) %>% 
+                                      arrange(match(TRT, order_trt)) %>%
+                                      rename(
+                                        "N" = Standard_residuals_hingstepeira_n,
+                                        "Mean padronized residuals" = Standard_residuals_hingstepeira_mean,
+                                        "SE" = Standard_residuals_hingstepeira_se,
+                                        "Mean weight total (g)" = Mean_weight_1_mean,  # Novo nome da coluna de Mean_weight_1
+                                        "SE weight total" = Mean_weight_1_se,
+                                        "Mean residual fat removed (g)" = Residual_fat_mean,
+                                        "SE residual fat removed" = Residual_fat_se) %>%
+                                      dplyr::select(TRT, N, 
+                                                    `Mean weight total (g)`, `SE weight total`, 
+                                                    `Mean residual fat removed (g)`, `SE residual fat removed`, 
+                                                    `Mean padronized residuals`, 
+                                                    `SE`)
+
+# Organizing the data set
+summary_fat_hingstepeira <- summary_fat_hingstepeira %>%
+                            mutate(`Mean weight total (g)` = paste0(`Mean weight total (g)`, " (± ", `SE weight total`, ')'),
+                            `Mean residual fat removed (g)` = paste0(`Mean residual fat removed (g)`, " (± ", `SE residual fat removed`, ')'),
+                            `Mean padronized residuals` = paste0(`Mean padronized residuals`, " (± ", SE, ')')) %>%
+                            # Selecionar apenas as colunas que deseja manter
+                            dplyr::select(TRT, N, 
+                                          `Mean weight total (g)`, 
+                                          `Mean residual fat removed (g)`, 
+                                          `Mean padronized residuals`) %>% 
+                                          rename(Treatment = 'TRT')
+
+# Creating and styling the table
+Table_S20 <- kbl(summary_fat_hingstepeira, booktabs = T, caption = "**Supplementary Table s20 | Summary of the fat content of the individuals of *H. folisecens* by AFEX treatments.** Treatment (TRT), number of individuals, mean weight, mean residual fat removed, ratio fat representation, and mean patronized residuals of the body condition data of individuals of *H. folisecens* in different fertilization treatments in a mature forest in Central Amazonia. The data analysis comprises data from spiders *H. folisecens* collected in three expeditions (2022, 2023 and 2024).", align = 'l')%>% 
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- #
+
+# Print the table
+Table_S20
+
+```
+
+$~$ 
+
+### 5.2. Dataset of cephalothorax width of *H. folisecens* individuals by main nutrient (Table S21)
+
+```{r TableS21, echo=FALSE}
+# Creating objects from each type of nutrient
+
+# Phosphorus table
+fat_P_hingstepeira <- hingstepeira_fat %>% 
+  dplyr::group_by(Phosphorus) %>%
+  dplyr::summarize(
+    'n' = n(),
+    'Mean weight total (g)' = round(mean(Mean_weight_1, na.rm=TRUE), digits = 4),
+    'se weight total' = format(round(se(Mean_weight_1), digits = 4), scientific = FALSE),
+    'Fat content weight (g)' = format(round(mean(Residual_fat, na.rm=TRUE), digits = 4), scientific = FALSE),
+    'se residual fat removed' = format(round(se(Residual_fat), digits = 4) , scientific = FALSE),
+    'Mean padronized residuals' = round(mean(Standard_residuals_hingstepeira, na.rm=T), digits = 4),
+    'se' = format(round(se(Standard_residuals_hingstepeira), digits = 4) , scientific = FALSE)) %>% 
+  dplyr::rename(Treatment = 'Phosphorus')
+
+
+# Nitrogen table
+fat_N_hingstepeira <- hingstepeira_fat %>%
+  dplyr::group_by(Nitrogen) %>%
+  dplyr::summarize(
+    'n' = n(),
+    'Mean weight total (g)' = round(mean(Mean_weight_1, na.rm=TRUE), digits = 4),
+    'se weight total' = format(round(se(Mean_weight_1), digits = 4), scientific = FALSE),
+    'Fat content weight (g)' = format(round(mean(Residual_fat, na.rm=TRUE), digits = 4), scientific = FALSE),
+    'se residual fat removed' = format(round(se(Residual_fat), digits = 4) , scientific = FALSE),
+    'Mean padronized residuals' = round(mean(Standard_residuals_hingstepeira, na.rm=T), digits = 4),
+    'se' = format(round(se(Standard_residuals_hingstepeira), digits = 4) , scientific = FALSE)) %>% 
+  dplyr::rename(Treatment = 'Nitrogen')
+
+# Cations table
+fat_Cations_hingstepeira <- hingstepeira_fat %>%
+  dplyr::group_by(Cations) %>%
+  dplyr::summarize(
+    'n' = n(),
+    'Mean weight total (g)' = round(mean(Mean_weight_1, na.rm=TRUE), digits = 4),
+    'se weight total' = format(round(se(Mean_weight_1), digits = 4), scientific = FALSE),
+    'Fat content weight (g)' = format(round(mean(Residual_fat, na.rm=TRUE), digits = 4), scientific = FALSE),
+    'se residual fat removed' = format(round(se(Residual_fat), digits = 4) , scientific = FALSE),
+    'Mean padronized residuals' = round(mean(Standard_residuals_hingstepeira, na.rm=T), digits = 4),
+    'se' = format(round(se(Standard_residuals_hingstepeira), digits = 4) , scientific = FALSE)) %>% 
+  dplyr::rename(Treatment = 'Cations')
+
+# Building the data.frame
+fat_combined_hingstepeira <- dplyr::bind_rows(fat_P_hingstepeira, fat_N_hingstepeira,  fat_Cations_hingstepeira)
+
+# Arreging the tables
+fat_combined_hingstepeira <- fat_combined_hingstepeira %>%
+    mutate(`Mean weight total (g)` = paste0(`Mean weight total (g)`, " (± ", `se weight total`, ')'),
+    `Fat content weight (g)` = paste0(`Fat content weight (g)`, " (± ", `se residual fat removed`, ')'),
+    `Mean padronized residuals` = paste0(`Mean padronized residuals`, " (± ", se, ')')) %>%
+     dplyr::select(Treatment, n, 
+     `Mean weight total (g)`, 
+     `Fat content weight (g)`, 
+     `Mean padronized residuals`) %>% 
+     rename(N = 'n')
+
+# Creating the table
+Table_S21 <- kbl(fat_combined_hingstepeira, booktabs = TRUE, caption = "**Supplementary Table S21 | Summary of the fat content of the individuals of *H. folisecens* per primary nutrient.** Treatment (TRT), number of individuals, mean weight, mean residual fat removed, ratio fat representation, and mean patronized residuals of the body condition data of individuals of *H. folisecens* in different fertilization treatments in a mature forest in Central Amazonia. The data analysis comprises data from spiders *H. folisecens* collected in three expeditions (2022, 2023 and 2024).", align = 'l') %>%
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- #
+
+# Print the table
+Table_S21
+
+```
+$~$
+
+### 5.3. Full model for fat content of *H. folisecens* (Table S22)
+
+
+```{r TableS22, echo=FALSE}
+# full model  - Fat content of the individuals of H. folisecens
+m4_fat_hingstepeira <- lmerTest::lmer(Standard_residuals_hingstepeira 
+                                      ~ N * P * CATIONS + EXPEDITION 
+                                      + (1 | BLOCK), 
+                                      REML = F, 
+                                      data = hingstepeira_fat)
+
+# Checking the model structure
+#summary(m4_fat_hingstepeira)
+
+# Model checking
+# plot(m4_fat_hingstepeira)
+# check_model(m4_fat_hingstepeira)
+
+# anova of the full model
+anova_full_m4 <- anova(m4_fat_hingstepeira, type = 3)
+
+# Creating the table
+Table_S22 <- kbl(anova_full_m4, booktabs = TRUE, caption = "**Supplementary Table S22 | Output of an anova of the full model: 'lmer(Standard_residuals_hingstepeira ~ N * P * CATIONS + EXPEDITION  + (1 | BLOCK),  REML = F.** This model was fitted with the standard residuals of the ratio between the total weight and residual fat content of the data of the individuals *H. folisecens*.", align = 'l') %>%
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- #
+
+# Print the table
+Table_S22
+
+```
+
+
+$~$ 
+
+### 5.4. Model simplification procedure for fat content of *H. folisecens* (Table S23)
+
+```{r S23 model 1, echo=FALSE}
+
+# Model simplification with step() function
+m4_simplification <- step(m4_fat_hingstepeira, 
+                          keep = 'EXPEDITION', 
+                          reduce.random = FALSE,
+                          trace = TRUE) 
+
+# Extract the final simplified model
+m4_fat_final <- get_model(m4_simplification)
+
+#summary(m4_fat_final)
+
+# Model checking
+# plot(m4_fat_final)
+# check_model(m4_fat_final)
+
+
+# Capture the table of eliminated terms from the simplification process
+m4_simplification_table <- m4_simplification$fixed
+
+# Create a table with kable showing the selected columns (without F value and Pr(>F))
+Table_S23 <- kbl(m4_simplification_table, booktabs = TRUE, caption = "**Supplementary Table S23 | Model simplification for standard residuals of the ratio between total weight and residual fat content of *H. folisecens*.** Simplification process of the full model of effects of the macronutrient fertilization in the *H. folisecens*'s body condition. This table shows the selected terms after backward elimination. All treatments were removed through the simplification process.", align = 'l') %>%
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- #
+
+# Printing the table
+Table_S23
+
+```
+
+$~$ 
+
+### 5.5. Null model comparison (Table S24)
+
+```{r TableS24 run totmod_full, warning = FALSE, echo=FALSE}
+
+# Fitting null model
+null_m4 <- lmer(Standard_residuals_hingstepeira ~ EXPEDITION 
+                                                  + (1 | BLOCK), 
+                                                  REML = F, 
+                                                  data = hingstepeira_fat)
+
+# Comparing models
+fat_null_model <- anova(m4_fat_hingstepeira, null_m4)
+
+# Creating the table
+Table_S24 <- kbl(fat_null_model, booktabs = T, caption = "**Supplementary Table S24 | Output of anova comparison between the final and null models**. The comparison showed a nonsignificant difference between the models (Chisq(7) = 11.308, p = 0.125).", align = 'l') %>% 
+  kable_styling(htmltable_class = 'lightable-classic')
+
+# -------------------------- #
+
+# Printing the table
+Table_S24
+
+```
+
+$~$
+
+### 5.6. Relationship between nutrient addition and body fat content of *H. folisecens* (Figure S3)
+
+```{r FigureS3, warning = FALSE, echo=FALSE, fig.cap="**Supplementary Figure S3 | Fat content of *H. folisecens* individuals by adding macronutrients, represented by the patronized residuals of the ratio between fat extracted and the weight without fat.** We no observed any effect of nutrient addiction on these spiders's body fat content. Each box represents the dispersion values of the data, where the full black line in the boxes represents the median of the data. The dots in each box represent the size of each individual. The dashed line represents the mean value of the cephalothorax width of individuals collected in the control plots (n = 17; Dashed line = -0.132 ± 0.237 (mean ± se))."}
+
+# Control data
+control_hingstepeira_fat <- hingstepeira_fat %>% filter(TRT == 'Control') %>% 
+                                   summarise(mean(Standard_residuals_hingstepeira),
+                                             se(Standard_residuals_hingstepeira))
+
+# Finding the control mean line
+# control_hingstepeira_fat # -0.132 ± 0.237 (mean ± se)
+
+
+# Phosphorus graphic
+Fat_hings_P <- ggplot(hingstepeira_fat) +
+  aes(x = Phosphorus, y = Standard_residuals_hingstepeira, fill = Phosphorus) +
+  geom_boxplot(aes(color = Phosphorus), width = 0.5, alpha = 0.6, position = position_dodge(0.75), outlier.shape = NA) + 
+  geom_jitter(aes(fill = Phosphorus), shape = 21, alpha = 0.3, color = "black", 
+              size = 2, position = position_jitter(width = 0.15, seed = 123)) +
+ labs(x = "Treatment", y = expression("Padronized residuals of " * " " * italic("H. folisecens"))) +
+  scale_fill_manual(values = colours_fill) +  
+  scale_color_manual(values = colours_around) + 
+  theme_classic() +
+  geom_hline(yintercept = -0.132, color = "black", linetype = "dashed", cex = 1, alpha = 0.5) +
+  theme(axis.text.x = element_text(size = 12, color = "black"),
+        axis.text.y = element_text(size = 12, color = "black"),
+        axis.title.y = element_text(size = 14),
+        axis.title.x = element_text(size = 14),
+        legend.position = "none")  
+
+# Nitrogen graphic
+Fat_hings_N <- ggplot(hingstepeira_fat) +
+  aes(x = Nitrogen, y = Standard_residuals_hingstepeira, fill = Nitrogen) +
+  geom_boxplot(aes(color = Nitrogen), width = 0.5, alpha = 0.6, position = position_dodge(0.75), outlier.shape = NA) + 
+  geom_jitter(aes(fill = Nitrogen), shape = 21, alpha = 0.3, color = "black", 
+              size = 2, position = position_jitter(width = 0.15, seed = 123)) +
+  labs(x = "Treatment", y = element_blank()) +
+  scale_fill_manual(values = colours_fill) +  
+  scale_color_manual(values = colours_around) + 
+  theme_classic() +
+  geom_hline(yintercept = -0.132, color = "black", linetype = "dashed", cex = 1, alpha = 0.5) +
+  theme(axis.text.x = element_text(size = 12, color = "black"),
+        axis.text.y = element_text(size = 12, color = "black"),
+        axis.title.y = element_text(size = 14),
+        axis.title.x = element_text(size = 14),
+        legend.position = "none")  
+
+
+# Cations graphic
+Fat_hings_Ca <- ggplot(hingstepeira_fat) +
+  aes(x = Cations, y = Standard_residuals_hingstepeira, fill = Cations) +
+  geom_boxplot(aes(color = Cations), width = 0.5, alpha = 0.6, position = position_dodge(0.75), outlier.shape = NA) + 
+  geom_jitter(aes(fill = Cations), shape = 21, alpha = 0.3, color = "black", 
+              size = 2, position = position_jitter(width = 0.15, seed = 123)) +
+  labs(x = "Treatment", y = element_blank()) +
+  scale_fill_manual(values = colours_fill) +
+  scale_color_manual(values = colours_around) +  
+  theme_classic() +
+  geom_hline(yintercept = -0.132, color = "black", linetype = "dashed", cex = 1, alpha = 0.5) +
+  theme(axis.text.x = element_text(size = 12, color = "black"),
+        axis.text.y = element_text(size = 12, color = "black"),
+        axis.title.y = element_text(size = 14),
+        axis.title.x = element_text(size = 14),
+        legend.position = "none")  
+
+# Arrenging the graphics
+Fig3_Hings_fat_graphic <- grid.arrange(Fat_hings_P, Fat_hings_N, Fat_hings_Ca, nrow = 1, widths = c(1, 1, 1.2))
+
+# -------------------------- #
+
+# Ploting
+invisible(Fig3_Hings_fat_graphic)
+
+```
+
